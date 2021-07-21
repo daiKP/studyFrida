@@ -115,6 +115,7 @@ function watchFileBehavior(){
             var filepath=this.path.value;
             console.log("FileOutputStream.write path is: "+filepath);
             stack_trace();
+            var args;
             return overload.apply(this,arguments);
         }
     });
