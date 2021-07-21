@@ -8,6 +8,23 @@ function init(){
         return retVar;
     }
 }
+//stack trace
+function stack_trace(){
+    var Exception =Java.use("java.lang.Exception");
+    var ExceObj=Exception.$new("Exception");
+    var straces=ExceObj.getStackTrace();
+    if(undefined == straces ||null==straces){
+        return;
+    }
+    console.log("======================Stack Top======================");
+    for (var i=0;i<straces.length;i++)
+    {
+        var str="    "+straces[i].toString();
+        console.log(str);
+    }
+    console.log("======================Stack Low======================")
+    Exception.$dispose();
+}
 //get current Activity copid  from objection 
 function getCurrentActivity(){
     var activityThread = Java.use("android.app.ActivityThread");
@@ -87,7 +104,8 @@ function watchFileBehavior(){
         overload.implementation=function(){
             var filepath=this.path.value;
             console.log("FileInputStream.read path is: "+filepath);
-            return this.apply(this,arguments);
+            stack_trace();
+            return overload.apply(this,arguments);
         }
     });
 
@@ -96,10 +114,11 @@ function watchFileBehavior(){
         overload.implementation=function(){
             var filepath=this.path.value;
             console.log("FileOutputStream.write path is: "+filepath);
-            return overload.call(this,arguments);
+            stack_trace();
+            return overload.apply(this,arguments);
         }
     });
-    Interceptor.
+
     //var FileWrites=JavaFile["write"].overloads;
     //FileWrites.forEach(function(overload){
     //    overload.implementation=function(){
