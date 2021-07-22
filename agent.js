@@ -92,7 +92,8 @@ function bypassSuCheck(){
 }
 //print byte array
 function printBytes(bytes){
-    var bytesarray=Java.cast(bytes,"B[");
+    var JavaBytes=Java.use("[B");
+    var bytesarray=Java.cast(bytes,JavaBytes);
     var array=Java.array("byte",bytesarray);
     console.log(JSON.stringify(array));
 }
@@ -107,14 +108,25 @@ function watchFileBehavior(){
 
     var javaFileInputStream=Java.use("java.io.FileInputStream");
     javaFileInputStream.read.overloads.forEach(function(overload){
+        var args=overload.argumentTypes.map((args)=>args.className);
         overload.implementation=function(){
             var filepath=this.path.value;
             console.log("FileInputStream.read path is: "+filepath);
             stack_trace();
-            return overload.apply(this,arguments);
+            console.log("FileInputStream("+args+")");
+            if(args.indexOf("[B")<0){
+                var ret=overload.apply(this,arguments);
+                console.log("read a Byte:"+ret);
+                return ret;
+            }
+            else{
+                ret=overload.apply(this,arguments);
+                console.log("offset:"+arguments[1]+" lenth:"+arguments[2]+"read Bytes:")
+                printBytes(arguments[0]);
+                return ret;
+            }
         }
     });
-
     var javaFileOutputStream=Java.use("java.io.FileOutputStream");
     javaFileOutputStream.write.overloads.forEach(function(overload){
         var args=overload.argumentTypes.map((args)=>args.className);
@@ -123,12 +135,15 @@ function watchFileBehavior(){
             var filepath=this.path.value;
             console.log("FileOutputStream.write path is: "+filepath);
             stack_trace();
-            console.log("args type: "+argslist)
-            if(argslist.indexOf("[B")){
+            console.log("FileOutputStream("+argslist+")")
+            if(argslist.indexOf("[B")>=0){
+                if(argslist.indexOf("int")>=0)
+                    console.log("offset:"+arguments[1]+",lenth:"+arguments[2]);
+                console.log("write bytes array:");
                 printBytes(arguments[0]);
             }
             else{
-                console.log(Java.cast(arguments[0],"int"));
+                console.log(arguments[0]);
             }
             return overload.apply(this,arguments);
         }
@@ -162,3 +177,6 @@ function start(){
     bypassSuCheck();
     watchFileBehavior()
 }
+Java.perform(function(){
+    start();
+})
