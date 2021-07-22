@@ -90,6 +90,12 @@ function bypassSuCheck(){
         return this.exec.overload("java.lang.String").call(this,cmd);
     }
 }
+//print byte array
+function printBytes(bytes){
+    var bytesarray=Java.cast(bytes,"B[");
+    var array=Java.array("byte",bytesarray);
+    console.log(JSON.stringify(array));
+}
 //watch file wr behavior
 function watchFileBehavior(){
     var JavaFile=Java.use("java.io.File");
@@ -111,30 +117,24 @@ function watchFileBehavior(){
 
     var javaFileOutputStream=Java.use("java.io.FileOutputStream");
     javaFileOutputStream.write.overloads.forEach(function(overload){
+        var args=overload.argumentTypes.map((args)=>args.className);
+        var argslist=args.join(", ")
         overload.implementation=function(){
             var filepath=this.path.value;
             console.log("FileOutputStream.write path is: "+filepath);
             stack_trace();
-            console.log(argumentTypes)
+            console.log("args type: "+argslist)
+            if(argslist.indexOf("[B")){
+                printBytes(arguments[0]);
+            }
+            else{
+                console.log(Java.cast(arguments[0],"int"));
+            }
             return overload.apply(this,arguments);
         }
     });
-
-    //var FileWrites=JavaFile["write"].overloads;
-    //FileWrites.forEach(function(overload){
-    //    overload.implementation=function(){
-    //        console.log("file write "+this.getAbsolutePath());
-    //        return overload.apply(this,arguments);
-    //    }
-    //});
-    //var FileReads=JavaFile["read"].overloads;
-    //FileReads.forEach(function(overload){
-    //    overload.implementation=function(){
-    //        console.log("file read "+this.getAbsolutePath());
-    //        return overload.apply(this,arguments);
-    //    }
-    //});
 }
+
 //screencap to
 function screencap(mode){
     const MODE_SYSTEM_SCREENCAP=1;
@@ -144,7 +144,7 @@ function screencap(mode){
             {
                 var Runtime=Java.use("java.lang.Runtime");
                 Runtime.getRuntime().exec("screencap ./temp.png");
-                var javaFile=Java.use("java.io.F~ile");
+                var javaFile=Java.use("java.io.File");
                 
                 break;
             }
@@ -160,4 +160,5 @@ function setFlagP(){
 function start(){
     init();
     bypassSuCheck();
+    watchFileBehavior()
 }
