@@ -115,7 +115,7 @@ function watchFileBehavior(){
             var filepath=this.path.value;
             console.log("FileOutputStream.write path is: "+filepath);
             stack_trace();
-            var args;
+            console.log(argumentTypes)
             return overload.apply(this,arguments);
         }
     });
@@ -134,6 +134,28 @@ function watchFileBehavior(){
     //        return overload.apply(this,arguments);
     //    }
     //});
+}
+//screencap to
+function screencap(mode){
+    const MODE_SYSTEM_SCREENCAP=1;
+    const MODE_VIEW_DRAWCACHE=2;
+    switch(mode){
+        case MODE_SYSTEM_SCREENCAP:
+            {
+                var Runtime=Java.use("java.lang.Runtime");
+                Runtime.getRuntime().exec("screencap ./temp.png");
+                var javaFile=Java.use("java.io.F~ile");
+                
+                break;
+            }
+        case MODE_VIEW_DRAWCACHE:{
+            
+        }
+    }
+}
+//set FLAG
+function setFlagP(){
+    
 }
 function start(){
     init();
