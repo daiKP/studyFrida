@@ -149,7 +149,20 @@ function watchFileBehavior(){
         }
     });
 }
-
+function getInstanseField(className) {
+    var instanseArray=new Array();
+    try{
+        Java.choose(className, {onComplete(){
+            console.log("all instanse out");
+        },onMatch(instanse){
+            var ins=Java.cast(instanse,Java.use(className));
+            instanseArray.push(ins);
+        }
+        })
+    }
+    
+    
+}
 //screencap to
 function screencap(mode){
     const MODE_SYSTEM_SCREENCAP=1;
