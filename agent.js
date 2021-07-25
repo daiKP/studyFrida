@@ -97,20 +97,36 @@ function printBytes(bytes){
     var array=Java.array("byte",bytesarray);
     console.log(JSON.stringify(array));
 }
+function addWRFile2List(filename,mode){
+    switch(mode){
+        case 0:
+            if(handle[fp]["open"].indexOf(filename)<0)
+                handle[fp]["open"].push(filename);
+            break;
+        case 1:
+            if(handle[fp]["read"].indexOf(filename)<0)
+                handle[fp]["read"].push(filename);
+            break;
+        case 2:
+            if(handle[fp]["write"].indexOf(filename)<0)
+                handle[fp]["write"].push(filename);
+    }
+}
 //watch file wr behavior
 function watchFileBehavior(){
     var JavaFile=Java.use("java.io.File");
     JavaFile.$init.overload("java.lang.String").implementation=function(filePath){
         console.log("file Object  new"+filePath)
+        addWRFile2List(filePath,0);
         var ret=this.$init(filePath);
         return ret;
     }
-
     var javaFileInputStream=Java.use("java.io.FileInputStream");
     javaFileInputStream.read.overloads.forEach(function(overload){
         var args=overload.argumentTypes.map((args)=>args.className);
         overload.implementation=function(){
             var filepath=this.path.value;
+            addWRFile2List(filepath,1)
             console.log("FileInputStream.read path is: "+filepath);
             stack_trace();
             console.log("FileInputStream("+args+")");
@@ -133,6 +149,7 @@ function watchFileBehavior(){
         var argslist=args.join(", ")
         overload.implementation=function(){
             var filepath=this.path.value;
+            addWRFile2List(filepath,2);
             console.log("FileOutputStream.write path is: "+filepath);
             stack_trace();
             console.log("FileOutputStream("+argslist+")")
@@ -149,19 +166,68 @@ function watchFileBehavior(){
         }
     });
 }
-function getInstanseField(className) {
-    var instanseArray=new Array();
+function getInsField(inshashcode){
+    let tInstance;
+    Object.keys(handle[ins]).forEach((classname)=>{
+        handle[ins][classname].filter((heapObject)=>{
+            if(heapObject.hashcode===inshashcode)
+                tInstance=heapObject.instance;
+        })
+    });
+    var allField=tInstance.class.getDeclaredFields().map((field)=>{
+        var fieldName=field.getName();
+        var fieldInstance=tInstance.class.getDeclaredFields(fieldName);
+        fieldInstance.setAccessible(true);
+
+        let fieldValue=fieldInstance.get(tInstance);
+        if(fieldValue)
+            fieldValue=fieldValue.toString();
+        
+        return{
+            name:fieldName,
+            value:fieldValue,
+        };
+    });
+    console.log("FieldName   FieldValue");
+    allField.forEach(function(field){
+        console.log(field.name+"    "+field.value);
+    })
+}
+function getInstances(className) {
     try{
         Java.choose(className, {onComplete(){
             console.log("all instanse out");
         },onMatch(instanse){
             var ins=Java.cast(instanse,Java.use(className));
-            instanseArray.push(ins);
+            handle[ins][className].push({
+                instance:ins,
+                hashcode:instanse.hashCode(),
+            });
         }
         })
+    }catch(err){
+        console.log(err)
     }
-    
-    
+    console.log("find instances:");
+    console.log("Instance       hashcode");
+    handle[ins][className].forEach((instance)=>{
+        console.log(instance.instance.toString()+"     "+instance.hashcode);
+    })
+}
+function pt_file()
+{
+    console.log("file used----------------------------")
+    handle[fp]["open"].forEach(function(filepath){
+        console.log(filepath);
+    });
+    console.log("file read----------------------------")
+    handle[fp]["read"].forEach(function(filepath){
+        console.log(filepath);
+    });
+    console.log("file write---------------------------")
+    handle[fp]["write"].forEach(function(filepath){
+        console.log(filepath)
+    })
 }
 //screencap to
 function screencap(mode){
@@ -173,7 +239,6 @@ function screencap(mode){
                 var Runtime=Java.use("java.lang.Runtime");
                 Runtime.getRuntime().exec("screencap ./temp.png");
                 var javaFile=Java.use("java.io.File");
-                
                 break;
             }
         case MODE_VIEW_DRAWCACHE:{
@@ -190,6 +255,9 @@ function start(){
     bypassSuCheck();
     watchFileBehavior()
 }
+handle={}
+const fp="FilePath";
+const ins="Instances";
 Java.perform(function(){
     start();
 })
