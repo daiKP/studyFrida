@@ -17,13 +17,18 @@ function stack_trace(){
         return;
     }
     console.log("======================Stack Top======================");
-    for (var i=0;i<straces.length;i++)
-    {
-        var str="    "+straces[i].toString();
-        console.log(str);
-    }
+    for (let i of straces)
+        console.log("    "+i.toString());
     console.log("======================Stack Low======================")
     Exception.$dispose();
+}
+//do sth before exit
+function disexit(){
+    var System=Java.use("java.lang.System");
+    System.exit.implementation=function(){
+        stack_trace();
+        this.apply(this,arguments);
+    }
 }
 //get current Activity copid  from objection 
 function getCurrentActivity(){
@@ -113,17 +118,16 @@ function addWRFile2List(filename,mode){
     }
 }
 //watch file wr behavior
-function watchFileBehavior(){
+function watchFileBehavior(mode){
     var JavaFile=Java.use("java.io.File");
     JavaFile.$init.overload("java.lang.String").implementation=function(filePath){
-        console.log("file Object  new"+filePath)
+        console.log("file Object :"+filePath)
         addWRFile2List(filePath,0);
-        var ret=this.$init(filePath);
-        return ret;
+        return this.$init(filePath);
     }
     var javaFileInputStream=Java.use("java.io.FileInputStream");
     javaFileInputStream.read.overloads.forEach(function(overload){
-        var args=overload.argumentTypes.map((args)=>args.className);
+        var args=overload.argumentTypes.map((arg)=>arg.className);
         overload.implementation=function(){
             var filepath=this.path.value;
             addWRFile2List(filepath,1)
@@ -138,14 +142,15 @@ function watchFileBehavior(){
             else{
                 ret=overload.apply(this,arguments);
                 console.log("offset:"+arguments[1]+" lenth:"+arguments[2]+"read Bytes:")
-                printBytes(arguments[0]);
+                if(mode==1)
+                    printBytes(arguments[0]);
                 return ret;
             }
         }
     });
     var javaFileOutputStream=Java.use("java.io.FileOutputStream");
     javaFileOutputStream.write.overloads.forEach(function(overload){
-        var args=overload.argumentTypes.map((args)=>args.className);
+        var args=overload.argumentTypes.map((arg)=>arg.className);
         var argslist=args.join(", ")
         overload.implementation=function(){
             var filepath=this.path.value;
@@ -157,7 +162,8 @@ function watchFileBehavior(){
                 if(argslist.indexOf("int")>=0)
                     console.log("offset:"+arguments[1]+",lenth:"+arguments[2]);
                 console.log("write bytes array:");
-                printBytes(arguments[0]);
+                if(mode==1)
+                    printBytes(arguments[0]);
             }
             else{
                 console.log(arguments[0]);
@@ -198,9 +204,9 @@ function getInstances(className) {
         Java.choose(className, {onComplete(){
             console.log("all instanse out");
         },onMatch(instanse){
-            var ins=Java.cast(instanse,Java.use(className));
+            var insi=Java.cast(instanse,Java.use(className));
             handle[ins][className].push({
-                instance:ins,
+                instance:insi,
                 hashcode:instanse.hashCode(),
             });
         }
@@ -212,6 +218,17 @@ function getInstances(className) {
     console.log("Instance       hashcode");
     handle[ins][className].forEach((instance)=>{
         console.log(instance.instance.toString()+"     "+instance.hashcode);
+    })
+}
+function enumClassLoaded(name){
+    Java.enumerateLoadedClasses({
+        onMatch(clazz){
+            if(clazz.indexOf(name)>=0)
+                console.log(clazz);
+        },
+        onComplete(){
+            console.log("complete");
+        }
     })
 }
 function pt_file()
@@ -251,13 +268,21 @@ function setFlagP(){
     
 }
 function start(){
+    
     init();
-    bypassSuCheck();
-    watchFileBehavior()
+    disexit()
+    //bypassSuCheck();
+    //watchFileBehavior(0);
 }
-handle={}
 const fp="FilePath";
 const ins="Instances";
+let handle={}
+handle[fp]=[]
+handle[fp]["open"]=[]
+handle[fp]["read"]=[]
+handle[fp]["write"]=[]
+
+
 Java.perform(function(){
     start();
 })
