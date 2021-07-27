@@ -9,7 +9,9 @@ function init(){
     }
 }
 //stack trace
-function stack_trace(){
+function stack_trace(mode=0){
+    if(mode!=1)
+        return;
     var Exception =Java.use("java.lang.Exception");
     var ExceObj=Exception.$new("Exception");
     var straces=ExceObj.getStackTrace();
@@ -60,6 +62,10 @@ function setProxy(addr,port){
         console.log("proxy set to"+addr+":"+port);
     }
 }
+//algorithm watch
+function watchAlgorithm(){
+    
+}
 //bypassSuCheck
 function bypassSuCheck(){
     var commonPaths = [
@@ -89,7 +95,7 @@ function bypassSuCheck(){
     var JavaRuntime=Java.use("java.lang.Runtime");
     var iOException = Java.use("java.io.IOException");
     JavaRuntime.exec.overload("java.lang.String").implementation=function(cmd){
-        if(cmd.enddWith("su")){
+        if(cmd.endsWith("su")){
             throw iOException.$new("anti-root");
         }
         return this.exec.overload("java.lang.String").call(this,cmd);
@@ -132,7 +138,7 @@ function watchFileBehavior(mode){
             var filepath=this.path.value;
             addWRFile2List(filepath,1)
             console.log("FileInputStream.read path is: "+filepath);
-            stack_trace();
+            stack_trace(mode);
             console.log("FileInputStream("+args+")");
             if(args.indexOf("[B")<0){
                 var ret=overload.apply(this,arguments);
@@ -156,7 +162,7 @@ function watchFileBehavior(mode){
             var filepath=this.path.value;
             addWRFile2List(filepath,2);
             console.log("FileOutputStream.write path is: "+filepath);
-            stack_trace();
+            stack_trace(mode);
             console.log("FileOutputStream("+argslist+")")
             if(argslist.indexOf("[B")>=0){
                 if(argslist.indexOf("int")>=0)
