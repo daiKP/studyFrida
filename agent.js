@@ -5,6 +5,7 @@ function init(){
         var retVar=this.attach(context);
         var clazzloader=context.getClassLoader();
         Java.classFactory.loader=clazzloader;
+        bypassSuCheck();
         return retVar;
     }
 }
@@ -100,6 +101,19 @@ function bypassSuCheck(){
         }
         return this.exec.overload("java.lang.String").call(this,cmd);
     }
+
+    //bypass com.scottyab.rootbeer
+    try{
+        var rootbeerB=Java.use("com.scottyab.rootbeer.b");
+        if(rootbeerB){
+            console.log("detect RootBeer");
+            rootbeerB.n.implementation=function(){
+                return false;
+            }
+        }   
+    }catch(err){
+        console.log(err);
+    }
 }
 //print byte array
 function printBytes(bytes){
@@ -123,12 +137,19 @@ function addWRFile2List(filename,mode){
                 handle[fp]["write"].push(filename);
     }
 }
+function checkinList(filename)
+{
+
+}
 //watch file wr behavior
-function watchFileBehavior(mode){
+function watchFileBehavior(mode=0,watchFileName="ZOPIASDUIOP"){
+    
     var JavaFile=Java.use("java.io.File");
     JavaFile.$init.overload("java.lang.String").implementation=function(filePath){
-        console.log("file Object :"+filePath)
-        addWRFile2List(filePath,0);
+        if(filePath.indexOf(ignorepath[0])<0){
+            console.log("file Object :"+filePath)
+            addWRFile2List(filePath,0);
+        }
         return this.$init(filePath);
     }
     var javaFileInputStream=Java.use("java.io.FileInputStream");
@@ -136,10 +157,11 @@ function watchFileBehavior(mode){
         var args=overload.argumentTypes.map((arg)=>arg.className);
         overload.implementation=function(){
             var filepath=this.path.value;
+            if(filepath.indexOf)
             addWRFile2List(filepath,1)
             console.log("FileInputStream.read path is: "+filepath);
             stack_trace(mode);
-            console.log("FileInputStream("+args+")");
+            //console.log("FileInputStream("+args+")");
             if(args.indexOf("[B")<0){
                 var ret=overload.apply(this,arguments);
                 console.log("read a Byte:"+ret);
@@ -147,9 +169,11 @@ function watchFileBehavior(mode){
             }
             else{
                 ret=overload.apply(this,arguments);
-                console.log("offset:"+arguments[1]+" lenth:"+arguments[2]+"read Bytes:")
                 if(mode==1)
+                {
+                    console.log("offset:"+arguments[1]+" lenth:"+arguments[2]+"read Bytes:")
                     printBytes(arguments[0]);
+                }
                 return ret;
             }
         }
@@ -160,16 +184,23 @@ function watchFileBehavior(mode){
         var argslist=args.join(", ")
         overload.implementation=function(){
             var filepath=this.path.value;
+            if(filepath.indexOf(watchFileName)>-1){
+                stack_trace(1);
+            }
             addWRFile2List(filepath,2);
             console.log("FileOutputStream.write path is: "+filepath);
             stack_trace(mode);
+            if(filepath.indexOf(watchFileBehavior)>-1){
+                stack_trace(1);
+            }
             console.log("FileOutputStream("+argslist+")")
-            if(argslist.indexOf("[B")>=0){
-                if(argslist.indexOf("int")>=0)
-                    console.log("offset:"+arguments[1]+",lenth:"+arguments[2]);
+            if(argslist.indexOf("[B")>=-1){
                 console.log("write bytes array:");
-                if(mode==1)
-                    printBytes(arguments[0]);
+                if(mode==1){
+                    if(argslist.indexOf("int")>=0)
+                        console.log("offset:"+arguments[1]+",lenth:"+arguments[2]);
+                printBytes(arguments[0]);
+                }
             }
             else{
                 console.log(arguments[0]);
@@ -177,6 +208,28 @@ function watchFileBehavior(mode){
             return overload.apply(this,arguments);
         }
     });
+
+    //native 
+    //Interceptor.attach(
+    //    Module.findExportByName("libc.so","open"),{
+    //        onEnter:function(args){
+    //            var path=Memory.readCString(args[0])
+    //            addWRFile2List(path,0);
+    //        },
+    //        onLeave:function(ret){
+    //            handle[fp]["native-fd"]["fd-"+ret.toInt32()]=path;
+    //        }
+    //    }
+    //)
+    //Interceptor.attach(Module.findExportByName("libc.so","read"),{
+    //    onEnter:function(args){
+    //        var path=(handle[fp]['native-fd']['fd'+args[0].toInt32]!=null)?handle[fp]['native-fd']//['fd'+args[0].toInt32]:"[Unknow]";
+    //        addWRFile2List(path,1);
+    //    },onLeave:function(ret){
+//
+    //    }
+    //}
+    //);
 }
 function getInsField(inshashcode){
     let tInstance;
@@ -269,6 +322,42 @@ function screencap(mode){
         }
     }
 }
+//trace class's all methods
+function traceClass(clsname) {
+    try {
+        var target = Java.use(clsname);
+        var methods = target.class.getDeclaredMethods();
+        methods.forEach(function (method) {
+            var methodName = method.getName();
+            var overloads = target[methodName].overloads;
+            overloads.forEach(function (overload) {
+                var proto = "(";
+                overload.argumentTypes.forEach(function (type) {
+                    proto += type.className + ", ";
+                });
+                if (proto.length > 1) {
+                    proto = proto.substr(0, proto.length - 2);
+                }
+                proto += ")";
+                log("hooking: " + clsname + "." + methodName + proto);
+                overload.implementation = function () {
+                    var args = [];
+                    var tid = getTid();
+                    var tName = getTName();
+                    for (var j = 0; j < arguments.length; j++) {
+                        args[j] = arguments[j] + ""
+                    }
+                    console.log(tid+ tName+ clsname+methodName + proto+"args "+ args);
+                    var retval = this[methodName].apply(this, arguments);
+                    exit(tid, "" + retval);
+                    return retval;
+                }
+            });
+        });
+    } catch (e) {
+        log("'" + clsname + "' hook fail: " + e)
+    }
+}
 //set FLAG
 function setFlagP(){
     
@@ -277,7 +366,7 @@ function start(){
     
     init();
     disexit()
-    //bypassSuCheck();
+    
     //watchFileBehavior(0);
 }
 const fp="FilePath";
@@ -287,7 +376,8 @@ handle[fp]=[]
 handle[fp]["open"]=[]
 handle[fp]["read"]=[]
 handle[fp]["write"]=[]
-
+handle[fp]["native-fd"]=[]
+var ignorepath=["/storage/emulated/0"]
 
 Java.perform(function(){
     start();
